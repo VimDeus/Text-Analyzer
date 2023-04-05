@@ -9,11 +9,11 @@ import java.awt.event.FocusListener;
 import java.io.BufferedReader;
 import java.io.InputStreamReader;
 import java.net.URL;
-import java.util.ArrayList;
-import java.util.Collections;
-import java.util.Comparator;
+import java.sql.Connection;
+import java.sql.DriverManager;
+import java.sql.PreparedStatement;
+import java.sql.ResultSet;
 import java.util.HashMap;
-import java.util.List;
 import java.util.Map;
 import java.util.Map.Entry;
 import javax.swing.JButton;
@@ -139,77 +139,89 @@ public class TextAnalyzer {
     @return a String containing the most frequent words and their frequency
     */
 	public static String analyzeText(int numWords) {
-	        StringBuilder sb = new StringBuilder();
+	    StringBuilder sb = new StringBuilder();
+
+	    try {
 	        
-	        try {
-	            URL url = new URL("https://www.gutenberg.org/files/1065/1065-h/1065-h.htm");
-	            BufferedReader in = new BufferedReader(new InputStreamReader(url.openStream()));
-	            String line;
-	            String poem = " ";
-	            boolean poemStarted = false;
-	            
-	            while ((line = in.readLine()) != null) {
-	                if (line.contains("<h1>The Raven</h1>")) {
-	                    poemStarted = true;
-	                }
-	                if (poemStarted) {
-	                    poem += line;
-	                }
-	                if (line.contains("END OF THE")) {
-	                    break;
-	                }
+	         // Initialize database connection
+	         // Username and Password have been changed for privacy. When accessing local SQL Server, input user specific values
+	         
+	    	String dburl = "jdbc:mysql://localhost:3306/word_occurrences";
+	    	String user = "username";
+	    	String password = "password";
+	    	Connection conn = DriverManager.getConnection(dburl, user, password);
+
+
+	       
+	        // Get poem text
+	         
+	        URL url = new URL("https://www.gutenberg.org/files/1065/1065-h/1065-h.htm");
+	        BufferedReader in = new BufferedReader(new InputStreamReader(url.openStream()));
+	        String line;
+	        String poem = " ";
+	        boolean poemStarted = false;
+	        while ((line = in.readLine()) != null) {
+	            if (line.contains("<h1>The Raven</h1>")) {
+	                poemStarted = true;
 	            }
-	            
-	            in.close();
-	            poem = poem.replaceAll("<[^>]*>", "");
-	            String[] words = poem.split(" ");
-	            
-	            
-	            
-	            Map<String, Integer> wordFrequencies = new HashMap<>();
-	            for (String word : words) {
-	                word = word.toLowerCase().replaceAll("[^a-zA-Z ]", ""); 
-	                if (wordFrequencies.containsKey(word)) {
-	                    wordFrequencies.put(word, wordFrequencies.get(word) + 1);
-	                } else {
-	                    wordFrequencies.put(word, 1);
-	                }
+	            if (poemStarted) {
+	                poem += line;
 	            }
-	            
-	           
-	            List<Entry<String, Integer>> list = new ArrayList<>(wordFrequencies.entrySet());
-	            Collections.sort(list, new Comparator<Entry<String, Integer>>() {
-	            	
-	            	/**
-	                 * Compares two entries by their values in descending order.
-	                 * @param o1 the first entry to compare.
-	                 * @param o2 the second entry to compare.
-	                 * @return  a negative integer, zero, or a positive integer as the first entry is less than, equal to, or greater than the second entry, respectively.
-	                 */
-	            	@Override
-	                public int compare(Entry<String, Integer> o1, Entry<String, Integer> o2) {
-	                    return o2.getValue() - o1.getValue();
-	                }
-	            });
-	            
-	            int count = 0;
-	            
-	            for (Entry<String, Integer> entry : list) {
-	                if (count >= numWords) {
-	                    break;
-	                }
-	                sb.append(entry.getKey()).append(": ").append(entry.getValue()).append("\n");
-	                count++;
+	            if (line.contains("END OF THE")) {
+	                break;
 	            }
-	            
-	            
-	            
-	        } catch (Exception e) {
-	            sb.append("An error occurred: ").append(e.getMessage());
 	        }
-	        return sb.toString();
+	        in.close();
+	        poem = poem.replaceAll("<[^>]*>", "");
+	        String[] words = poem.split(" ");
+
 	        
+	         //  Count word frequencies
+	         
+	        Map<String, Integer> wordFrequencies = new HashMap<>();
+	        for (String word : words) {
+	            word = word.toLowerCase().replaceAll("[^a-zA-Z ]", "");
+	            if (wordFrequencies.containsKey(word)) {
+	                wordFrequencies.put(word, wordFrequencies.get(word) + 1);
+	            } else {
+	                wordFrequencies.put(word, 1);
+	            }
+	        }
+
+	        
+	         //  Store word frequencies in database (with duplicate check)
+	         
+	        String insertStatement = "INSERT INTO word (word, frequency) SELECT ?, ? FROM dual WHERE NOT EXISTS (SELECT 1 FROM word WHERE word = ?)";
+	        PreparedStatement pstmt = conn.prepareStatement(insertStatement);
+	        for (Entry<String, Integer> entry : wordFrequencies.entrySet()) {
+	            pstmt.setString(1, entry.getKey());
+	            pstmt.setInt(2, entry.getValue());
+	            pstmt.setString(3, entry.getKey());
+	            pstmt.executeUpdate();
+	        }
+	        pstmt.close();
+
+
+	        
+	         // Retrieve top numWords word frequencies from database
+	        
+	        String selectStatement = "SELECT * FROM word ORDER BY frequency DESC LIMIT ?";
+	        pstmt = conn.prepareStatement(selectStatement);
+	        pstmt.setInt(1, numWords);
+	        ResultSet rs = pstmt.executeQuery();
+	        while (rs.next()) {
+	            sb.append(rs.getString("word")).append(": ").append(rs.getInt("frequency")).append("\n");
+	        }
+	        rs.close();
+	        pstmt.close();
+	        conn.close();
+
+	    } catch (Exception e) {
+	        sb.append("An error occurred: ").append(e.getMessage());
 	    }
+	    return sb.toString();
+	}
+
 	
 	
 		/**
