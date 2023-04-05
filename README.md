@@ -14,7 +14,7 @@ To run this application, you need to have Java 8 or later installed on your comp
 
    1.  Clone the repository to your local machine using the following command:
 
-      git clone https://github.com/yourusername/text-analyzer.git
+      git clone https://github.com/VimDeus/text-analyzer.git
 
    2.  Navigate to the cloned directory:
        
