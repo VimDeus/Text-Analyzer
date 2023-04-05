@@ -24,29 +24,49 @@ import javax.swing.JTextArea;
 import javax.swing.JTextField;
 import javax.swing.SwingUtilities;
 
+
+/**
+* The TextAnalyzer class provides a simple graphical user interface (GUI) for analyzing
+* the frequency of words in the poem. The poem is retrieved from a URL and the user can input
+* the number of words to analyze for word occurrence frequency.
+* 
+* @version 0.8.1
+*/
 public class TextAnalyzer {
+	
 	private Integer inputText;
 	private JFrame frame;
 	private JTextField numWordsField;
 	private JTextArea resultArea;
 
-
-
+	
+	/**
+    * Constructs a new TextAnalyzer object and creates the GUI.
+    */
 	public TextAnalyzer() {
+		
+		
 		frame = new JFrame("Text Analyzer");
 		frame.setDefaultCloseOperation(JFrame.EXIT_ON_CLOSE);
 		frame.setSize(500, 400);
 		frame.setLocationRelativeTo(null);
 		JPanel inputPanel = new JPanel();
 		inputPanel.setLayout(new BorderLayout());
-
 		numWordsField = new JTextField();
 		numWordsField.setToolTipText("Input Word Amount Here");
 		numWordsField.setPreferredSize(new Dimension(150, 30));
 		numWordsField.setForeground(Color.GRAY);
 		inputPanel.add(numWordsField, BorderLayout.CENTER);
 
+		
+		
+		
 		numWordsField.addFocusListener(new FocusListener() {
+		
+			/**
+			* Sets the text field to an empty string and changes the text color to black
+			* when the field gains focus.
+			*/
 		    @Override
 		    public void focusGained(FocusEvent e) {
 		        if (numWordsField.getText().equals("Input Word Amount Here")) {
@@ -55,6 +75,11 @@ public class TextAnalyzer {
 		        }
 		    }
 
+		    
+		    /**
+		     * Sets the text field to the default value and changes the text color to gray
+		     * when the field loses focus and has no text entered.
+		     */
 		    @Override
 		    public void focusLost(FocusEvent e) {
 		        if (numWordsField.getText().isEmpty()) {
@@ -64,13 +89,20 @@ public class TextAnalyzer {
 		    }
 		});
 
+		
+		
 		JButton analyzeButton = new JButton("Analyze");
 		analyzeButton.setBackground(new Color(51, 153, 255));
 		analyzeButton.setForeground(Color.WHITE);
 		analyzeButton.setPreferredSize(new Dimension(100, 30));
 
 		analyzeButton.addActionListener(new ActionListener() {
-		    @Override
+		
+			/**
+			* Gets the input text from the text field, analyzes the text, and updates the
+			* result area with the word frequencies.
+			*/ 
+			@Override
 		    public void actionPerformed(ActionEvent e) {
 		        String fieldVal = numWordsField.getText();
 		        inputText = Integer.parseInt(fieldVal);
@@ -79,10 +111,9 @@ public class TextAnalyzer {
 		    }
 		});
 
+		
 		inputPanel.add(analyzeButton, BorderLayout.EAST);
-
 		frame.add(inputPanel, BorderLayout.NORTH);
-
 		resultArea = new JTextArea();
 		resultArea.setEditable(false);
 		resultArea.setBackground(Color.DARK_GRAY);
@@ -96,18 +127,23 @@ public class TextAnalyzer {
 		JScrollPane scrollPane = new JScrollPane(resultArea);
 		scrollPane.setVerticalScrollBarPolicy(JScrollPane.VERTICAL_SCROLLBAR_ALWAYS);
 		frame.add(scrollPane, BorderLayout.CENTER);
-
 		frame.setVisible(true);
 	}
 	
 	
+	
+	
+	/**
+    Analyzes the frequency of words in a poem retrieved from a URL.
+    @param numWords the number of most frequent words to analyze
+    @return a String containing the most frequent words and their frequency
+    */
 	public static String analyzeText(int numWords) {
 	        StringBuilder sb = new StringBuilder();
 	        
 	        try {
 	            URL url = new URL("https://www.gutenberg.org/files/1065/1065-h/1065-h.htm");
 	            BufferedReader in = new BufferedReader(new InputStreamReader(url.openStream()));
-	            
 	            String line;
 	            String poem = " ";
 	            boolean poemStarted = false;
@@ -128,6 +164,8 @@ public class TextAnalyzer {
 	            poem = poem.replaceAll("<[^>]*>", "");
 	            String[] words = poem.split(" ");
 	            
+	            
+	            
 	            Map<String, Integer> wordFrequencies = new HashMap<>();
 	            for (String word : words) {
 	                word = word.toLowerCase().replaceAll("[^a-zA-Z ]", ""); 
@@ -138,9 +176,17 @@ public class TextAnalyzer {
 	                }
 	            }
 	            
+	           
 	            List<Entry<String, Integer>> list = new ArrayList<>(wordFrequencies.entrySet());
 	            Collections.sort(list, new Comparator<Entry<String, Integer>>() {
-	                @Override
+	            	
+	            	/**
+	                 * Compares two entries by their values in descending order.
+	                 * @param o1 the first entry to compare.
+	                 * @param o2 the second entry to compare.
+	                 * @return  a negative integer, zero, or a positive integer as the first entry is less than, equal to, or greater than the second entry, respectively.
+	                 */
+	            	@Override
 	                public int compare(Entry<String, Integer> o1, Entry<String, Integer> o2) {
 	                    return o2.getValue() - o1.getValue();
 	                }
@@ -166,9 +212,16 @@ public class TextAnalyzer {
 	    }
 	
 	
+		/**
+	    Starts the application by creating a new instance of TextAnalyzer in a Swing thread.
+	    @param args the command-line arguments.
+	    */
 	public static void main(String[] args) {
-        SwingUtilities.invokeLater(new Runnable() {
-            @Override
+    		SwingUtilities.invokeLater(new Runnable() {
+        	/**
+        	* Creates a new instance of TextAnalyzer.
+        	*/
+        	@Override
             public void run() {
                 new TextAnalyzer();
             }
