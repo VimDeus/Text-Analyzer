@@ -7,15 +7,10 @@ import java.awt.event.ActionListener;
 import java.awt.event.FocusEvent;
 import java.awt.event.FocusListener;
 import java.io.BufferedReader;
+import java.io.IOException;
 import java.io.InputStreamReader;
-import java.net.URL;
-import java.sql.Connection;
-import java.sql.DriverManager;
-import java.sql.PreparedStatement;
-import java.sql.ResultSet;
-import java.util.HashMap;
-import java.util.Map;
-import java.util.Map.Entry;
+import java.io.PrintWriter;
+import java.net.Socket;
 import javax.swing.JButton;
 import javax.swing.JFrame;
 import javax.swing.JPanel;
@@ -28,12 +23,11 @@ import javax.swing.SwingUtilities;
 /**
 * The TextAnalyzer class provides a simple graphical user interface (GUI) for analyzing
 * the frequency of words in the poem. The poem is retrieved from a URL and the user can input
-* the number of words to analyze for word occurrence frequency.
+* the number of words to analyze for word occurrence frequency. This is the client side of the application.
 * 
-* @version 0.8.1
+* @version 1.0.1
 */
 public class TextAnalyzer {
-	
 	private Integer inputText;
 	private JFrame frame;
 	private JTextField numWordsField;
@@ -44,8 +38,6 @@ public class TextAnalyzer {
     * Constructs a new TextAnalyzer object and creates the GUI.
     */
 	public TextAnalyzer() {
-		
-		
 		frame = new JFrame("Text Analyzer");
 		frame.setDefaultCloseOperation(JFrame.EXIT_ON_CLOSE);
 		frame.setSize(500, 400);
@@ -57,12 +49,9 @@ public class TextAnalyzer {
 		numWordsField.setPreferredSize(new Dimension(150, 30));
 		numWordsField.setForeground(Color.GRAY);
 		inputPanel.add(numWordsField, BorderLayout.CENTER);
-
-		
-		
-		
 		numWordsField.addFocusListener(new FocusListener() {
 		
+			
 			/**
 			* Sets the text field to an empty string and changes the text color to black
 			* when the field gains focus.
@@ -90,14 +79,13 @@ public class TextAnalyzer {
 		});
 
 		
-		
 		JButton analyzeButton = new JButton("Analyze");
 		analyzeButton.setBackground(new Color(51, 153, 255));
 		analyzeButton.setForeground(Color.WHITE);
 		analyzeButton.setPreferredSize(new Dimension(100, 30));
-
 		analyzeButton.addActionListener(new ActionListener() {
 		
+			
 			/**
 			* Gets the input text from the text field, analyzes the text, and updates the
 			* result area with the word frequencies.
@@ -123,7 +111,6 @@ public class TextAnalyzer {
 		resultArea.setWrapStyleWord(true);
 		resultArea.setLineWrap(true);
 		resultArea.setFont(new Font("Arial", Font.ITALIC, 14));
-
 		JScrollPane scrollPane = new JScrollPane(resultArea);
 		scrollPane.setVerticalScrollBarPolicy(JScrollPane.VERTICAL_SCROLLBAR_ALWAYS);
 		frame.add(scrollPane, BorderLayout.CENTER);
@@ -131,115 +118,58 @@ public class TextAnalyzer {
 	}
 	
 	
-	
-	
-	/**
-    Analyzes the frequency of words in a poem retrieved from a URL.
-    @param numWords the number of most frequent words to analyze
-    @return a String containing the most frequent words and their frequency
-    */
-	public static String analyzeText(int numWords) {
+	 /**
+     * Gets the input text from the text field, analyzes the text, and updates the
+     * result area with the word frequencies.
+     *
+     * @param numWords the number of most frequent words to analyze
+     * @return a String containing the most frequent words and their frequency
+     */
+	public String analyzeText(int numWords) {
 	    StringBuilder sb = new StringBuilder();
 
+	    //Server Connection 
+	    
 	    try {
-	        
-	         // Initialize database connection
-	         // Username and Password have been changed for privacy. When accessing local SQL Server, input user specific values
-	         
-	    	String dburl = "jdbc:mysql://localhost:3306/word_occurrences";
-	    	String user = "username";
-	    	String password = "password";
-	    	Connection conn = DriverManager.getConnection(dburl, user, password);
+	        String hostName = "localhost";
+	        int port = 12345;
 
+	        try (Socket clientSocket = new Socket(hostName, port);
+	             BufferedReader in = new BufferedReader(new InputStreamReader(clientSocket.getInputStream()));
+	             PrintWriter out = new PrintWriter(clientSocket.getOutputStream(), true);) {
 
-	       
-	        // Get poem text
-	         
-	        URL url = new URL("https://www.gutenberg.org/files/1065/1065-h/1065-h.htm");
-	        BufferedReader in = new BufferedReader(new InputStreamReader(url.openStream()));
-	        String line;
-	        String poem = " ";
-	        boolean poemStarted = false;
-	        while ((line = in.readLine()) != null) {
-	            if (line.contains("<h1>The Raven</h1>")) {
-	                poemStarted = true;
-	            }
-	            if (poemStarted) {
-	                poem += line;
-	            }
-	            if (line.contains("END OF THE")) {
-	                break;
+	            out.println(numWords);
+	            String response;
+	            
+	            while ((response = in.readLine()) != null) {
+	                sb.append(response).append("\n");
 	            }
 	        }
-	        in.close();
-	        poem = poem.replaceAll("<[^>]*>", "");
-	        String[] words = poem.split(" ");
-
-	        
-	         //  Count word frequencies
-	         
-	        Map<String, Integer> wordFrequencies = new HashMap<>();
-	        for (String word : words) {
-	            word = word.toLowerCase().replaceAll("[^a-zA-Z ]", "");
-	            if (wordFrequencies.containsKey(word)) {
-	                wordFrequencies.put(word, wordFrequencies.get(word) + 1);
-	            } else {
-	                wordFrequencies.put(word, 1);
-	            }
-	        }
-
-	        
-	         //  Store word frequencies in database (with duplicate check)
-	         
-	        String insertStatement = "INSERT INTO word (word, frequency) SELECT ?, ? FROM dual WHERE NOT EXISTS (SELECT 1 FROM word WHERE word = ?)";
-	        PreparedStatement pstmt = conn.prepareStatement(insertStatement);
-	        for (Entry<String, Integer> entry : wordFrequencies.entrySet()) {
-	            pstmt.setString(1, entry.getKey());
-	            pstmt.setInt(2, entry.getValue());
-	            pstmt.setString(3, entry.getKey());
-	            pstmt.executeUpdate();
-	        }
-	        pstmt.close();
-
-
-	        
-	         // Retrieve top numWords word frequencies from database
-	        
-	        String selectStatement = "SELECT * FROM word ORDER BY frequency DESC LIMIT ?";
-	        pstmt = conn.prepareStatement(selectStatement);
-	        pstmt.setInt(1, numWords);
-	        ResultSet rs = pstmt.executeQuery();
-	        while (rs.next()) {
-	            sb.append(rs.getString("word")).append(": ").append(rs.getInt("frequency")).append("\n");
-	        }
-	        rs.close();
-	        pstmt.close();
-	        conn.close();
-
-	    } catch (Exception e) {
+	    } catch (IOException e) {
 	        sb.append("An error occurred: ").append(e.getMessage());
 	    }
+
 	    return sb.toString();
 	}
 
 	
-	
-		/**
-	    Starts the application by creating a new instance of TextAnalyzer in a Swing thread.
-	    @param args the command-line arguments.
-	    */
+	 /**
+     * Starts the application by creating a new instance of TextAnalyzer in a Swing thread.
+     *
+     * @param args the command-line arguments
+     */
 	public static void main(String[] args) {
     		SwingUtilities.invokeLater(new Runnable() {
-        	/**
+        	
+    		/**
         	* Creates a new instance of TextAnalyzer.
         	*/
         	@Override
             public void run() {
                 new TextAnalyzer();
-            }
+        
+        	}
         });
 	}
-	
-	
 }
 
